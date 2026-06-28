@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campeonato Golf · Granadilla</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a1a;min-height:100vh}
+
+.header{background:#1a5c2e;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+.header-title{font-size:16px;font-weight:700}
+.header-sub{font-size:11px;opacity:.7;margin-top:1px}
+.header-badge{margin-left:auto;background:rgba(255,255,255,.18);border-radius:12px;padding:3px 10px;font-size:11px;white-space:nowrap}
+
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e0e0e0;position:sticky;top:50px;z-index:99}
+.tab{flex:1;padding:11px 4px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;color:#888;border-bottom:3px solid transparent;transition:all .15s}
+.tab.active{color:#1a5c2e;border-bottom-color:#1a5c2e}
+
+.screen{display:none;padding:12px}
+.screen.active{display:block}
+
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.card-title{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+
+/* Setup */
+.player-row{display:grid;grid-template-columns:14px 1fr 72px;gap:8px;margin-bottom:8px;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+input[type=text],input[type=number]{border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 10px;font-size:14px;color:#1a1a1a;width:100%;background:#fff}
+input[type=number]{text-align:center}
+input:focus{outline:none;border-color:#1a5c2e}
+input::placeholder{color:#ccc}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;width:100%;transition:background .15s}
+.btn-primary{background:#1a5c2e;color:#fff}
+.btn-primary:hover{background:#145025}
+.btn-primary:disabled{background:#aaa;cursor:default}
+.btn-secondary{background:#f0f2f5;color:#444}
+.btn-sm{padding:8px 14px;font-size:12px;width:auto;border-radius:8px;font-weight:600}
+
+/* MATRIZ scorecard */
+.matrix-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:0 12px}
+.matrix-table{border-collapse:collapse;font-size:12px;white-space:nowrap}
+.matrix-table th{background:#1a5c2e;color:#fff;padding:5px 6px;text-align:center;font-weight:700;font-size:11px;position:sticky}
+.matrix-table th.col-name{text-align:left;padding-left:10px;min-width:80px;position:sticky;left:0;z-index:10;background:#1a5c2e}
+.matrix-table td.col-name{position:sticky;left:0;z-index:5;background:#fff;font-weight:700;font-size:12px;padding:4px 8px;border-right:2px solid #e0e0e0;min-width:80px}
+.matrix-table td.col-name.par-row{background:#f8f9fa}
+.matrix-table td.col-name.si-row{background:#f8f9fa}
+
+.matrix-table td{padding:2px 3px;text-align:center;border-bottom:1px solid #f0f0f0}
+.matrix-table tr.row-par td{background:#f8f9fa;font-weight:700;font-size:11px;color:#555;padding:4px 6px}
+.matrix-table tr.row-si td{background:#f8f9fa;font-size:10px;color:#aaa;padding:3px 6px}
+.matrix-table tr.row-sep td{background:#1a5c2e;height:3px;padding:0}
+.matrix-table td.subtotal{background:#e8f0e8;font-weight:700;font-size:12px}
+.matrix-table td.total-col{background:#1a5c2e;color:#fff;font-weight:700;font-size:13px}
+.matrix-table th.subtotal-h{background:#145025}
+.matrix-table th.total-h{background:#0d3a1c}
+
+/* Celda de input score */
+.score-cell{position:relative;width:36px}
+.score-cell input{width:36px;height:32px;border:1.5px solid #e0e0e0;border-radius:6px;text-align:center;font-size:14px;font-weight:700;padding:0;background:#fff;color:#1a1a1a;-moz-appearance:textfield}
+.score-cell input::-webkit-outer-spin-button,.score-cell input::-webkit-inner-spin-button{-webkit-appearance:none}
+.score-cell input:focus{outline:none;border-color:#1a5c2e;background:#f0faf4}
+.pts-sub{font-size:9px;text-align:center;margin-top:1px;height:11px;font-weight:700}
+.pts-sub.p4{color:#6a3db5}
+.pts-sub.p3{color:#2e7d32}
+.pts-sub.p2{color:#1565c0}
+.pts-sub.p1{color:#e65100}
+.pts-sub.p0{color:#ccc}
+
+/* Colores input según resultado */
+.score-cell input.r4{border-color:#9575cd;background:#f3e5f5}
+.score-cell input.r3{border-color:#66bb6a;background:#e8f5e9}
+.score-cell input.r2{border-color:#42a5f5;background:#e3f2fd}
+.score-cell input.r1{border-color:#ffa726;background:#fff8e1}
+.score-cell input.r0{border-color:#e0e0e0;background:#fafafa}
+
+/* Leaderboard */
+.lb-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0}
+.lb-row:last-child{border-bottom:none}
+.lb-pos{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.pos-1{background:#ffd700;color:#7a5800}
+.pos-2{background:#c0c0c0;color:#444}
+.pos-3{background:#cd7f32;color:#fff}
+.pos-o{background:#f0f2f5;color:#666}
+.lb-info{flex:1}
+.lb-name{font-size:15px;font-weight:700}
+.lb-detail{font-size:11px;color:#888;margin-top:2px}
+.lb-dots{display:flex;flex-wrap:wrap;gap:2px;margin-top:5px}
+.ld{width:10px;height:10px;border-radius:50%}
+.ld0{background:#e0e0e0}.ld1{background:#ffa726}.ld2{background:#42a5f5}.ld3{background:#66bb6a}.ld4{background:#9575cd}
+.lb-pts{text-align:right}
+.lb-pts-num{font-size:26px;font-weight:800;color:#1a5c2e}
+.lb-pts-lbl{font-size:10px;color:#aaa}
+
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-box{background:#fff;border-radius:10px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stat-val{font-size:22px;font-weight:800;color:#1a5c2e}
+.stat-lbl{font-size:11px;color:#888;margin-top:2px}
+
+.upload-area{border:2px dashed #ddd;border-radius:10px;padding:16px;text-align:center;cursor:pointer;color:#888;font-size:13px;transition:border .15s;margin-bottom:10px}
+.upload-area:hover,.upload-area.has-data{border-color:#1a5c2e;color:#1a5c2e;background:#f0faf4}
+#file-input{display:none}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;justify-content:center}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#666}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">⛳ Campeonato Granadilla</div>
+    <div class="header-sub">Stableford Neto · 4 jugadores</div>
+  </div>
+  <div class="header-badge">Viña del Mar</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('setup')">👥 Jugadores</div>
+  <div class="tab" onclick="showTab('score')">📋 Tarjeta</div>
+  <div class="tab" onclick="showTab('lead')">🏆 Ranking</div>
+</div>
+
+<!-- SETUP -->
+<div id="tab-setup" class="screen active">
+  <div class="card">
+    <div class="card-title">Jugadores y handicap</div>
+    <div id="players-form"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Campo</div>
+    <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:24px;margin-bottom:6px">📂</div>
+      <div style="font-weight:700;margin-bottom:3px">Cargar JSON del campo</div>
+      <div id="upload-status">o usa Granadilla por defecto ↓</div>
+    </div>
+    <input type="file" id="file-input" accept=".json" onchange="loadJSON(event)">
+    <button class="btn btn-secondary btn-sm" style="width:100%;margin-bottom:8px" onclick="loadDefaultCourse()">
+      Usar Club de Campo Granadilla (par 72)
+    </button>
+    <div id="course-info" style="display:none;background:#f0faf4;border-radius:8px;padding:10px;font-size:13px;border:1px solid #c8e6c9">
+      ✅ <strong id="course-name-display"></strong> — <span id="course-detail-display"></span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="start-btn" onclick="startGame()" disabled>
+    🚀 Comenzar campeonato
+  </button>
+  <p style="text-align:center;font-size:11px;color:#aaa;margin-top:8px">Eagle 4pts · Birdie 3pts · Par 2pts · Bogey 1pt · +2 o más 0pts</p>
+</div>
+
+<!-- SCORECARD MATRIZ -->
+<div id="tab-score" class="screen">
+  <div class="card" style="padding:10px 0">
+    <div style="padding:0 14px 10px;display:flex;align-items:center;justify-content:space-between">
+      <div class="card-title" style="margin:0">Tarjeta de juego</div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-dot" style="background:#9575cd"></span>Eagle</span>
+        <span class="leg-item"><span class="leg-dot" style="background:#66bb6a"></span>Birdie</span>
+        <span class="leg-item"><span class="leg-dot" style="background:#42a5f5"></span>Par</span>
+        <span class="leg-item"><span class="leg-dot" style="background:#ffa726"></span>Bogey</span>
+      </div>
+    </div>
+    <div class="matrix-wrap">
+      <table class="matrix-table" id="scorecard-matrix"></table>
+    </div>
+  </div>
+  <button class="btn btn-secondary" onclick="showTab('lead')" style="margin-top:4px">
+    🏆 Ver clasificación
+  </button>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="tab-lead" class="screen">
+  <div class="stats-grid" id="stats-grid"></div>
+  <div class="card">
+    <div class="card-title">Clasificación en tiempo real</div>
+    <div id="leaderboard-rows"></div>
+  </div>
+  <button class="btn btn-secondary" onclick="showTab('score')" style="margin-top:4px">
+    📋 Volver a la tarjeta
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = ['#e53935','#1e88e5','#43a047','#fb8c00'];
+
+const DEFAULT_COURSE = {
+  name: "Club de Campo Granadilla",
+  location: "Viña del Mar, Chile",
+  par: 72,
+  holes: [
+    {n:1,  par:5, si:11},
+    {n:2,  par:4, si:3},
+    {n:3,  par:4, si:9},
+    {n:4,  par:4, si:1},
+    {n:5,  par:4, si:5},
+    {n:6,  par:4, si:15},
+    {n:7,  par:3, si:17},
+    {n:8,  par:4, si:13},
+    {n:9,  par:4, si:7},
+    {n:10, par:4, si:6},
+    {n:11, par:3, si:18},
+    {n:12, par:4, si:4},
+    {n:13, par:4, si:10},
+    {n:14, par:4, si:12},
+    {n:15, par:4, si:16},
+    {n:16, par:4, si:8},
+    {n:17, par:5, si:2},
+    {n:18, par:4, si:14}
+  ]
+};
+
+const S = {
+  players: [
+    {name:'Vicente V', hcp:8},
+    {name:'Juan Jaime', hcp:13},
+    {name:'Arturo C',  hcp:20},
+    {name:'Pauli V',   hcp:31},
+  ],
+  course: null,
+  scores: {}
+};
+
+// ── Lógica golf ──────────────────────────────
+function getStrokes(hcp, si) {
+  let s = 0;
+  if (hcp >= si) s++;
+  if (hcp >= si + 18) s++;
+  return s;
+}
+function calcPts(brutos, par, extra) {
+  if (!brutos || brutos <= 0) return null;
+  const diff = (brutos - extra) - par;
+  if (diff <= -2) return 4;
+  if (diff === -1) return 3;
+  if (diff === 0)  return 2;
+  if (diff === 1)  return 1;
+  return 0;
+}
+function getScore(hi, pi) {
+  return (S.scores[`h${S.course.holes[hi].n}`] || [])[pi] || null;
+}
+function setScore(hi, pi, val) {
+  const key = `h${S.course.holes[hi].n}`;
+  if (!S.scores[key]) S.scores[key] = [null,null,null,null];
+  S.scores[key][pi] = (val > 0) ? val : null;
+  saveLocal();
+}
+function playerTotal(pi) {
+  return S.course.holes.reduce((acc, h, hi) => {
+    const sc = getScore(hi, pi);
+    const p = calcPts(sc, h.par, getStrokes(S.players[pi].hcp, h.si));
+    return acc + (p || 0);
+  }, 0);
+}
+function holesPlayed(pi) {
+  return S.course.holes.filter((h,hi) => getScore(hi,pi) !== null).length;
+}
+
+// ── Persistencia ─────────────────────────────
+function saveLocal() {
+  try { localStorage.setItem('golf_g26', JSON.stringify({players:S.players,course:S.course,scores:S.scores})); } catch(e){}
+}
+function loadLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem('golf_g26') || 'null');
+    if (d && d.course) { S.players=d.players; S.course=d.course; S.scores=d.scores||{}; return true; }
+  } catch(e){}
+  return false;
+}
+
+// ── Setup UI ─────────────────────────────────
+function renderPlayersForm() {
+  document.getElementById('players-form').innerHTML = S.players.map((p,i) => `
+    <div class="player-row">
+      <div class="dot" style="background:${COLORS[i]}"></div>
+      <input type="text" value="${p.name}" placeholder="Jugador ${i+1}"
+        oninput="S.players[${i}].name=this.value">
+      <input type="number" value="${p.hcp}" min="0" max="54" placeholder="HCP"
+        oninput="S.players[${i}].hcp=+this.value">
+    </div>`).join('');
+}
+
+function loadDefaultCourse() {
+  S.course = JSON.parse(JSON.stringify(DEFAULT_COURSE));
+  showCourseInfo();
+  document.getElementById('start-btn').disabled = false;
+  toast('✅ Granadilla cargado — Par 72, 18 hoyos');
+}
+function loadJSON(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (!d.holes || d.holes.length < 9) { toast('❌ JSON inválido'); return; }
+      S.course = d; showCourseInfo();
+      document.getElementById('start-btn').disabled = false;
+      toast(`✅ ${d.name} cargado`);
+    } catch(e) { toast('❌ Error al leer JSON'); }
+  };
+  r.readAsText(file);
+}
+function showCourseInfo() {
+  const el = document.getElementById('course-info');
+  el.style.display = 'block';
+  document.getElementById('course-name-display').textContent = S.course.name;
+  document.getElementById('course-detail-display').textContent =
+    `${S.course.holes.length} hoyos · Par ${S.course.par}`;
+  document.getElementById('upload-area').classList.add('has-data');
+  document.getElementById('upload-status').textContent = 'Campo cargado ✓';
+}
+function startGame() {
+  saveLocal();
+  showTab('score');
+  toast('🚀 ¡A jugar!');
+}
+
+// ── Matriz scorecard ─────────────────────────
+function buildMatrix() {
+  if (!S.course) return;
+  const holes = S.course.holes;
+  const ida   = holes.slice(0,9);
+  const vta   = holes.slice(9);
+
+  // Encabezado
+  const hdrIda = ida.map(h=>`<th>${h.n}</th>`).join('');
+  const hdrVta = vta.map(h=>`<th>${h.n}</th>`).join('');
+
+  // Filas par y SI
+  const parIda = ida.map(h=>`<td>${h.par}</td>`).join('');
+  const parVta = vta.map(h=>`<td>${h.par}</td>`).join('');
+  const siIda  = ida.map(h=>`<td>${h.si}</td>`).join('');
+  const siVta  = vta.map(h=>`<td>${h.si}</td>`).join('');
+
+  const parIda9 = ida.reduce((a,h)=>a+h.par,0);
+  const parVta9 = vta.reduce((a,h)=>a+h.par,0);
+
+  // Filas jugadores
+  const playerRows = S.players.map((p,pi) => {
+    const cellsIda = ida.map((h,hi) => scoreCell(hi, pi)).join('');
+    const cellsVta = vta.map((h,hi) => scoreCell(hi+9, pi)).join('');
+    const ptsIda = ida.reduce((a,h,hi)=>{
+      const sc=getScore(hi,pi);
+      return a+(calcPts(sc,h.par,getStrokes(p.hcp,h.si))||0);
+    },0);
+    const ptsVta = vta.reduce((a,h,hi)=>{
+      const sc=getScore(hi+9,pi);
+      return a+(calcPts(sc,h.par,getStrokes(p.hcp,h.si))||0);
+    },0);
+    return `<tr>
+      <td class="col-name" style="color:${COLORS[pi]}">${p.name}<br><span style="font-size:10px;color:#aaa;font-weight:400">HCP ${p.hcp}</span></td>
+      ${cellsIda}
+      <td class="subtotal">${ptsIda||'—'}</td>
+      ${cellsVta}
+      <td class="subtotal">${ptsVta||'—'}</td>
+      <td class="total-col">${ptsIda+ptsVta||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('scorecard-matrix').innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-name">Jugador</th>
+        ${hdrIda}
+        <th class="subtotal-h">IDA</th>
+        ${hdrVta}
+        <th class="subtotal-h">VTA</th>
+        <th class="total-h">TOT</th>
+      </tr>
+      <tr class="row-par">
+        <td class="col-name par-row" style="font-size:11px;color:#555">Par</td>
+        ${parIda}<td class="subtotal">${parIda9}</td>
+        ${parVta}<td class="subtotal">${parVta9}</td>
+        <td class="total-col">${S.course.par}</td>
+      </tr>
+      <tr class="row-si">
+        <td class="col-name si-row">SI</td>
+        ${siIda}<td class="subtotal">—</td>
+        ${siVta}<td class="subtotal">—</td>
+        <td class="total-col">—</td>
+      </tr>
+    </thead>
+    <tbody>${playerRows}</tbody>`;
+}
+
+function scoreCell(hi, pi) {
+  const h = S.course.holes[hi];
+  const sc = getScore(hi, pi);
+  const extra = getStrokes(S.players[pi].hcp, h.si);
+  const pts = calcPts(sc, h.par, extra);
+  const rClass = pts !== null ? `r${pts}` : '';
+  const ptsTxt = pts !== null ? ['0','B','P','🐦','🦅'][pts] : '';
+  const ptsClass = pts !== null ? `p${pts}` : '';
+  return `<td>
+    <div class="score-cell">
+      <input type="number" min="1" max="15" value="${sc||''}" placeholder="${h.par+1}"
+        class="${rClass}"
+        oninput="onInput(${hi},${pi},this)"
+        onchange="onInput(${hi},${pi},this)">
+      <div class="pts-sub ${ptsClass}" id="ps-${hi}-${pi}">${ptsTxt}</div>
+    </div>
+  </td>`;
+}
+
+function onInput(hi, pi, el) {
+  const v = parseInt(el.value);
+  setScore(hi, pi, v);
+  const h = S.course.holes[hi];
+  const extra = getStrokes(S.players[pi].hcp, h.si);
+  const pts = calcPts(v > 0 ? v : null, h.par, extra);
+  // Color input
+  el.className = pts !== null ? `r${pts}` : '';
+  // Pts sub
+  const sub = document.getElementById(`ps-${hi}-${pi}`);
+  if (pts !== null) {
+    sub.textContent = ['0','B','P','🐦','🦅'][pts];
+    sub.className = `pts-sub p${pts}`;
+  } else {
+    sub.textContent = '';
+    sub.className = 'pts-sub';
+  }
+  // Actualizar totales de fila
+  updateRowTotals(pi);
+}
+
+function updateRowTotals(pi) {
+  // Recalcular ida y vuelta del jugador y re-render sólo las celdas de totales
+  // Es más simple re-buildear la tabla entera pero manteniendo foco
+  const focused = document.activeElement;
+  const focusedId = focused ? focused.id : null;
+  // Solo rebuild si no hay input activo (para no perder foco)
+  // En cambio actualizamos manualmente los totales
+  const p = S.players[pi];
+  const holes = S.course.holes;
+  const ptsIda = holes.slice(0,9).reduce((a,h,hi)=>{
+    return a+(calcPts(getScore(hi,pi),h.par,getStrokes(p.hcp,h.si))||0);
+  },0);
+  const ptsVta = holes.slice(9).reduce((a,h,hi)=>{
+    return a+(calcPts(getScore(hi+9,pi),h.par,getStrokes(p.hcp,h.si))||0);
+  },0);
+  // Los totales están en tbody > tr[pi] > últimas 3 celdas
+  const rows = document.querySelectorAll('#scorecard-matrix tbody tr');
+  if (rows[pi]) {
+    const cells = rows[pi].querySelectorAll('td.subtotal, td.total-col');
+    if (cells[0]) cells[0].textContent = ptsIda || '—';
+    if (cells[1]) cells[1].textContent = ptsVta || '—';
+    if (cells[2]) cells[2].textContent = (ptsIda+ptsVta) || '—';
+  }
+}
+
+// ── Leaderboard ───────────────────────────────
+function renderLeaderboard() {
+  if (!S.course) return;
+  const ranked = S.players.map((p,i)=>({
+    name:p.name, hcp:p.hcp, idx:i,
+    pts:playerTotal(i), played:holesPlayed(i)
+  })).sort((a,b)=>b.pts-a.pts);
+
+  const maxPlayed = Math.max(...ranked.map(r=>r.played),0);
+  document.getElementById('stats-grid').innerHTML = [
+    {val:maxPlayed,          lbl:'Hoyos jugados'},
+    {val:S.course.holes.length-maxPlayed, lbl:'Hoyos restantes'},
+    {val:ranked[0]?.pts||0,  lbl:'Puntaje líder'},
+    {val:ranked.length>1 ? ranked[0].pts-ranked[1].pts : '—', lbl:'Diferencia'},
+  ].map(s=>`<div class="stat-box"><div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('');
+
+  document.getElementById('leaderboard-rows').innerHTML = ranked.map((r,pos)=>{
+    const posClass = ['pos-1','pos-2','pos-3','pos-o'][Math.min(pos,3)];
+    const dots = S.course.holes.map((h,hi)=>{
+      const sc = getScore(hi,r.idx);
+      if (!sc) return `<span class="ld ld0"></span>`;
+      const pts = calcPts(sc,h.par,getStrokes(S.players[r.idx].hcp,h.si))||0;
+      return `<span class="ld ld${pts}" title="H${h.n}: ${pts}pts"></span>`;
+    }).join('');
+    return `<div class="lb-row">
+      <div class="lb-pos ${posClass}">${pos+1}</div>
+      <div class="lb-info">
+        <div class="lb-name" style="color:${COLORS[r.idx]}">${r.name}</div>
+        <div class="lb-detail">HCP ${r.hcp} · ${r.played} hoyos jugados</div>
+        <div class="lb-dots">${dots}</div>
+      </div>
+      <div class="lb-pts">
+        <div class="lb-pts-num">${r.pts}</div>
+        <div class="lb-pts-lbl">puntos</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Navegación ────────────────────────────────
+function showTab(t) {
+  document.querySelectorAll('.tab,.screen').forEach(el=>el.classList.remove('active'));
+  document.querySelector(`.tab[onclick="showTab('${t}')"]`).classList.add('active');
+  document.getElementById(`tab-${t}`).classList.add('active');
+  if (t==='score' && S.course) buildMatrix();
+  if (t==='lead'  && S.course) renderLeaderboard();
+}
+
+function toast(msg, ms=2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), ms);
+}
+
+// ── Init ──────────────────────────────────────
+function init() {
+  if (loadLocal()) { showCourseInfo(); document.getElementById('start-btn').disabled=false; }
+  renderPlayersForm();
+}
+init();
+</script>
+</body>
+</html>
